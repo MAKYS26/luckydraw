@@ -264,8 +264,9 @@
                 <div class="prize-name" id="resultPrize"></div>
                 <div class="prize-num" id="resultPrizeNum"></div>
                 <div class="counter-claim-card" id="resultCounter" style="display: none;">
-                    <div class="claim-title">Claim your prize at</div>
+                    <div class="claim-title">Sila tuntut hadiah anda di</div>
                     <div class="claim-counter" id="resultCounterNum"></div>
+                    <div class="claim-title">sebelum 12 tengah malam</div>
                 </div>
             </div>
         </div>
@@ -344,7 +345,7 @@
                 box.classList.add('win');
                 icon.className = 'icon fas fa-trophy';
                 icon.textContent = '';
-                title.textContent = 'Congratulations! You won!';
+                title.textContent = 'Tahniah ! Anda Menang!';
                 prizeEl.textContent = prizeName || ('Prize #' + (prizeIndex + 1));
                 prizeNumEl.textContent = 'Prize #' + (prizeIndex + 1);
                 prizeEl.style.display = 'block';
@@ -360,7 +361,7 @@
                 box.classList.add('nowin');
                 icon.className = 'icon';
                 icon.textContent = '😢';
-                title.innerHTML = 'Sorry<br>Try Again Next Year';
+                title.innerHTML = 'Maaf<br>Tidak Berjaya';
             }
             box.classList.add('show');
         }
