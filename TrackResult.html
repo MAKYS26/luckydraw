@@ -320,11 +320,8 @@
         }
 
         function getCounterForPrize(prizeNum) {
-            if (prizeNum >= 1 && prizeNum <= 50) return 1;
-            if (prizeNum >= 51 && prizeNum <= 100) return 2;
-            if (prizeNum >= 101 && prizeNum <= 150) return 3;
-            if (prizeNum >= 151 && prizeNum <= 200) return 4;
-            return null;
+            if (!Number.isFinite(prizeNum) || prizeNum < 1) return null;
+            return Math.ceil(prizeNum / 50);
         }
 
         function showResult(won, prizeIndex, prizeName) {
