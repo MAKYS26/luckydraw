@@ -360,7 +360,14 @@
         <textarea class="form-control" id="inputNames" rows="5" placeholder="Enter names or numbers here..."></textarea>
         <div class="mt-4">
             <label for="numberOfDraws" style="color: antiquewhite;">No. of Draw:</label>
-            <input type="number" class="form-control" id="numberOfDraws" min="1" value="1" style="margin-top: 10px;">
+            <label for="drawCountPreset" class="d-block mt-2 mb-1" style="color: antiquewhite; font-size: 0.9rem;">Quick preset</label>
+            <select class="form-control" id="drawCountPreset" style="margin-top: 4px;">
+                <option value="custom">Custom… (type any count below)</option>
+                <option value="1">1 draw — sets font to 275px</option>
+                <option value="25">25 draws — sets font to 62px</option>
+            </select>
+            <p class="mb-2 mt-1" style="font-size: 0.78rem; color: rgba(250, 235, 215, 0.55);">Presets set draw count and font; you can still edit the number box for other values.</p>
+            <input type="number" class="form-control" id="numberOfDraws" min="1" value="1" style="margin-top: 6px;">
         </div>
         <div class="mt-4">
             <label for="slotDurationInput" style="color: antiquewhite;">Slot Machine Duration (seconds):</label>
@@ -397,6 +404,37 @@
         let drawnItems = [];
         let allResults = [];
         let currentFontSize = 71;
+        const FONT_SIZE_ONE_DRAW = 275;
+        const FONT_SIZE_25_DRAWS = 62;
+        let manualFontOverride = false;
+
+        function syncDrawPresetSelect() {
+            const sel = document.getElementById('drawCountPreset');
+            if (!sel) return;
+            if (manualFontOverride) {
+                sel.value = 'custom';
+                return;
+            }
+            const n = parseInt(document.getElementById('numberOfDraws').value, 10) || 0;
+            const f = parseInt(document.getElementById('fontSizeInput').value, 10) || 0;
+            if (n === 1 && f === FONT_SIZE_ONE_DRAW) sel.value = '1';
+            else if (n === 25 && f === FONT_SIZE_25_DRAWS) sel.value = '25';
+            else sel.value = 'custom';
+        }
+
+        function applyDrawCountPreset(val) {
+            const numEl = document.getElementById('numberOfDraws');
+            const fontEl = document.getElementById('fontSizeInput');
+            if (val === '1') {
+                numEl.value = 1;
+                fontEl.value = FONT_SIZE_ONE_DRAW;
+                currentFontSize = FONT_SIZE_ONE_DRAW;
+            } else if (val === '25') {
+                numEl.value = 25;
+                fontEl.value = FONT_SIZE_25_DRAWS;
+                currentFontSize = FONT_SIZE_25_DRAWS;
+            }
+        }
 
         function playSound(soundFile) {
             const audio = new Audio(soundFile);
@@ -660,13 +698,27 @@
             alert("Draw history has been cleared. All drawn items have been restored to the pool.");
         });
 
+        document.getElementById('drawCountPreset').addEventListener('change', function () {
+            if (this.value === 'custom') return;
+            manualFontOverride = false;
+            applyDrawCountPreset(this.value);
+            syncDrawPresetSelect();
+        });
+
+        document.getElementById('numberOfDraws').addEventListener('input', function () {
+            syncDrawPresetSelect();
+        });
+
         document.getElementById('fontSizeInput').addEventListener('input', function () {
             currentFontSize = parseInt(this.value, 10) || 71;
+            manualFontOverride = true;
+            syncDrawPresetSelect();
         });
 
         // Initialize currentFontSize from input on load
         document.addEventListener('DOMContentLoaded', function () {
             currentFontSize = parseInt(document.getElementById('fontSizeInput').value, 10) || 71;
+            syncDrawPresetSelect();
         });
 
         function fadeInCharacterByCharacter(text, container) {
