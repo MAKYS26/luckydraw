@@ -308,7 +308,6 @@
             padding: 8px;
         }
         body.display-mode .back-to-home { display: none; }
-        body.display-mode #container2 { display: none !important; }
         .mode-badge {
             position: fixed;
             top: 12px;
@@ -473,6 +472,30 @@
                 drawnItems: drawnItems,
                 allResults: allResults
             });
+        }
+
+        function getConsoleSettingsFromInputs() {
+            return {
+                numberOfDraws: Math.max(1, parseInt(document.getElementById('numberOfDraws').value, 10) || 1),
+                slotDurationSec: Math.max(3, Math.min(15, parseInt(document.getElementById('slotDurationInput').value, 10) || 5)),
+                fontSizePx: Math.max(10, parseInt(document.getElementById('fontSizeInput').value, 10) || 71),
+                updatedAt: Date.now()
+            };
+        }
+
+        function applyConsoleSettings(settings) {
+            if (!settings) return;
+            const numberOfDraws = Math.max(1, parseInt(settings.numberOfDraws, 10) || 1);
+            const slotDurationSec = Math.max(3, Math.min(15, parseInt(settings.slotDurationSec, 10) || 5));
+            const fontSizePx = Math.max(10, parseInt(settings.fontSizePx, 10) || 71);
+            document.getElementById('numberOfDraws').value = numberOfDraws;
+            document.getElementById('slotDurationInput').value = slotDurationSec;
+            document.getElementById('fontSizeInput').value = fontSizePx;
+            currentFontSize = fontSizePx;
+        }
+
+        function writeConsoleSettings() {
+            database.ref('drawSession/settings').set(getConsoleSettingsFromInputs());
         }
 
         function removeDuplicates(array) {
@@ -732,8 +755,17 @@
             alert("Draw history has been cleared. All drawn items have been restored to the pool.");
         });
 
+        document.getElementById('numberOfDraws').addEventListener('input', function () {
+            writeConsoleSettings();
+        });
+
+        document.getElementById('slotDurationInput').addEventListener('input', function () {
+            writeConsoleSettings();
+        });
+
         document.getElementById('fontSizeInput').addEventListener('input', function () {
-            currentFontSize = parseInt(this.value, 10) || 71;
+            currentFontSize = Math.max(10, parseInt(this.value, 10) || 71);
+            writeConsoleSettings();
         });
 
         function applyDrawResultsSnapshot(data) {
@@ -768,11 +800,17 @@
         window.onload = function () {
             createSparkles();
             syncDrawResultsFromFirebase();
+            database.ref('drawSession/settings').on('value', function (snapshot) {
+                const settings = snapshot.val();
+                if (!settings) return;
+                applyConsoleSettings(settings);
+            });
             database.ref('drawSession/current').on('value', function (snapshot) {
                 const p = snapshot.val();
                 if (!p) return;
                 runMirroredDrawSequence(p);
             });
+            writeConsoleSettings();
         };
 
         document.getElementById('inputNames').addEventListener('input', function () {
@@ -794,7 +832,7 @@
             }
             const inp = document.getElementById('inputNames');
             if (inp) inp.readOnly = !isControl;
-            currentFontSize = parseInt(document.getElementById('fontSizeInput').value, 10) || 71;
+            currentFontSize = Math.max(10, parseInt(document.getElementById('fontSizeInput').value, 10) || 71);
             if (isControl) {
                 const sanitizeButton = document.createElement('button');
                 sanitizeButton.className = 'btn btn-info mt-4';
