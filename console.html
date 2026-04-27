@@ -536,6 +536,7 @@
         }
 
         function writeConsoleSettings() {
+            if (!isControl) return;
             database.ref('drawSession/settings').set(getConsoleSettingsFromInputs());
         }
 
@@ -797,6 +798,7 @@
         });
 
         document.getElementById('drawCountPreset').addEventListener('change', function () {
+            if (!isControl) return;
             if (this.value === 'custom') return;
             manualFontOverride = false;
             applyDrawCountPreset(this.value);
@@ -804,15 +806,18 @@
         });
 
         document.getElementById('numberOfDraws').addEventListener('input', function () {
+            if (!isControl) return;
             syncDrawPresetSelect();
             writeConsoleSettings();
         });
 
         document.getElementById('slotDurationInput').addEventListener('input', function () {
+            if (!isControl) return;
             writeConsoleSettings();
         });
 
         document.getElementById('fontSizeInput').addEventListener('input', function () {
+            if (!isControl) return;
             currentFontSize = Math.max(10, parseInt(this.value, 10) || 71);
             manualFontOverride = true;
             syncDrawPresetSelect();
@@ -861,7 +866,9 @@
                 if (!p) return;
                 runMirroredDrawSequence(p);
             });
-            writeConsoleSettings();
+            if (isControl) {
+                writeConsoleSettings();
+            }
         };
 
         document.getElementById('inputNames').addEventListener('input', function () {
