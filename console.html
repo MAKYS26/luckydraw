@@ -856,11 +856,22 @@
         window.onload = function () {
             createSparkles();
             syncDrawResultsFromFirebase();
-            database.ref('drawSession/settings').on('value', function (snapshot) {
-                const settings = snapshot.val();
-                if (!settings) return;
-                applyConsoleSettings(settings);
-            });
+            const settingsRef = database.ref('drawSession/settings');
+            if (isControl) {
+                settingsRef.once('value').then(function (snapshot) {
+                    const settings = snapshot.val();
+                    if (!settings) return;
+                    applyConsoleSettings(settings);
+                }).catch(function (err) {
+                    console.warn('drawSession settings once failed:', err);
+                });
+            } else {
+                settingsRef.on('value', function (snapshot) {
+                    const settings = snapshot.val();
+                    if (!settings) return;
+                    applyConsoleSettings(settings);
+                });
+            }
             database.ref('drawSession/current').on('value', function (snapshot) {
                 const p = snapshot.val();
                 if (!p) return;
