@@ -42,17 +42,6 @@
             color: var(--text-muted);
             margin: 0;
         }
-        .counter-badge {
-            display: inline-block;
-            margin-top: 8px;
-            padding: 6px 14px;
-            border-radius: 999px;
-            border: 1px solid rgba(255,255,255,0.25);
-            font-weight: 600;
-            font-size: clamp(0.95rem, 2.2vw, 1.2rem);
-            color: var(--text);
-            background: rgba(255,255,255,0.06);
-        }
         .total-badge {
             position: absolute;
             top: 50%;
@@ -99,77 +88,20 @@
             margin-bottom: 20px;
             opacity: 0.5;
         }
-        .counter-selector-overlay {
-            position: fixed;
-            inset: 0;
-            z-index: 9999;
-            background: rgba(5, 5, 10, 0.92);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-        }
-        .counter-selector-card {
-            width: min(760px, 100%);
-            background: #171722;
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 14px;
-            padding: 22px;
-            text-align: center;
-        }
-        .counter-selector-card h2 {
-            margin: 0 0 10px;
-            font-size: clamp(1.3rem, 3vw, 2rem);
-        }
-        .counter-selector-card p {
-            margin: 0 0 16px;
-            color: var(--text-muted);
-        }
-        .counter-buttons {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(90px, 1fr));
-            gap: 10px;
-        }
-        .counter-btn {
-            border: 1px solid rgba(255,255,255,0.25);
-            background: #24243a;
-            color: #fff;
-            border-radius: 10px;
-            padding: 12px 10px;
-            font-size: 1.1rem;
-            font-weight: 700;
-            cursor: pointer;
-        }
-        .counter-btn:hover {
-            background: #2c2c45;
-        }
     </style>
 </head>
 <body>
     <script>if(!sessionStorage.getItem('staffAuth'))location.replace('StaffLogin.html');</script>
     <div class="header">
         <h1>Cabutan Tiket Bertuah</h1>
-        <p class="subtitle" id="subtitleText">Sila pastkan nombor tiket anda tertera di skrin</p>
-        <div class="counter-badge" id="counterBadge" style="display:none;"></div>
+        <p class="subtitle">Sila pastkan nombor tiket anda tertera di skrin</p>
         <div class="total-badge" id="totalCount">0</div>
     </div>
 
     <div class="grid-container" id="grid"></div>
     <div class="empty-state" id="emptyState" style="display: none;">
         <i class="fas fa-qrcode"></i>
-        <p id="emptyText">No tickets scanned yet for this counter.</p>
-    </div>
-    <div class="counter-selector-overlay" id="counterSelectorOverlay" style="display:none;">
-        <div class="counter-selector-card">
-            <h2>Select Monitor Counter</h2>
-            <p>Choose which counter this monitor should display.</p>
-            <div class="counter-buttons">
-                <button class="counter-btn" data-counter="1">Counter 1</button>
-                <button class="counter-btn" data-counter="2">Counter 2</button>
-                <button class="counter-btn" data-counter="3">Counter 3</button>
-                <button class="counter-btn" data-counter="4">Counter 4</button>
-            </div>
-        </div>
+        <p>No tickets scanned yet. Scans from all devices will appear here.</p>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.21.0/firebase-app-compat.js"></script>
@@ -190,100 +122,36 @@
         const gridEl = document.getElementById('grid');
         const totalEl = document.getElementById('totalCount');
         const emptyEl = document.getElementById('emptyState');
-        const emptyTextEl = document.getElementById('emptyText');
-        const subtitleEl = document.getElementById('subtitleText');
-        const counterBadgeEl = document.getElementById('counterBadge');
-        const selectorOverlayEl = document.getElementById('counterSelectorOverlay');
-        const COUNTER_STORAGE_KEY = 'scannedDisplayCounterId';
-        let selectedCounterId = '';
 
-        function getScanContentText(item) {
+        function normalizeItem(item) {
             if (item == null) return '';
-            if (typeof item === 'object' && item !== null) {
-                if (item.content != null) return String(item.content).trim();
-                if (item.data != null) return String(item.data).trim();
+            if (typeof item === 'object' && item !== null && item.data != null) return String(item.data);
+            return String(item);
+        }
+
+        database.ref('drawResults/items').on('value', (snapshot) => {
+            const raw = snapshot.val();
+            const items = [];
+            if (raw && Array.isArray(raw)) {
+                raw.forEach((item) => {
+                    const s = normalizeItem(item).trim();
+                    if (s) items.push(s);
+                });
+                items.reverse(); // Newest first (same as Scanner01)
             }
-            return String(item).trim();
-        }
 
-        function normalizeScanRecord(item, index) {
-            const content = getScanContentText(item);
-            let counterId = 'legacy';
-            let scannedAt = Date.now();
-            if (typeof item === 'object' && item !== null) {
-                counterId = item.counterId != null ? String(item.counterId) : 'legacy';
-                const parsedScannedAt = Number(item.scannedAt);
-                if (!Number.isNaN(parsedScannedAt) && parsedScannedAt > 0) {
-                    scannedAt = parsedScannedAt;
-                }
-            }
-            return {
-                id: index,
-                content: content,
-                counterId: counterId,
-                scannedAt: scannedAt
-            };
-        }
+            totalEl.textContent = items.length;
+            emptyEl.style.display = items.length === 0 ? 'block' : 'none';
+            gridEl.style.display = items.length === 0 ? 'none' : 'grid';
 
-        function applyCounterUi(counterId) {
-            const label = 'Counter ' + counterId;
-            counterBadgeEl.style.display = 'inline-block';
-            counterBadgeEl.textContent = label;
-            subtitleEl.textContent = 'Paparan khas untuk ' + label;
-            emptyTextEl.textContent = 'No tickets scanned yet for ' + label + '.';
-        }
-
-        function renderCounterItems(records) {
-            totalEl.textContent = records.length;
-            emptyEl.style.display = records.length === 0 ? 'block' : 'none';
-            gridEl.style.display = records.length === 0 ? 'none' : 'grid';
             gridEl.innerHTML = '';
-            records.forEach((record) => {
+            items.forEach((content) => {
                 const card = document.createElement('div');
                 card.className = 'ticket-card';
-                card.textContent = record.content;
+                card.textContent = content;
                 gridEl.appendChild(card);
             });
-        }
-
-        function startDisplaySync() {
-            database.ref('drawResults/items').on('value', (snapshot) => {
-                const raw = snapshot.val();
-                let records = [];
-                if (raw && Array.isArray(raw)) {
-                    records = raw.map((item, index) => normalizeScanRecord(item, index))
-                        .filter((record) => record.content);
-                }
-                const filtered = records.filter((record) => record.counterId === selectedCounterId);
-                filtered.sort((a, b) => b.id - a.id);
-                renderCounterItems(filtered);
-            });
-        }
-
-        function chooseCounter(counterId) {
-            selectedCounterId = String(counterId);
-            sessionStorage.setItem(COUNTER_STORAGE_KEY, selectedCounterId);
-            applyCounterUi(selectedCounterId);
-            selectorOverlayEl.style.display = 'none';
-            startDisplaySync();
-        }
-
-        function initializeCounterSelection() {
-            const savedCounter = sessionStorage.getItem(COUNTER_STORAGE_KEY);
-            if (savedCounter && ['1', '2', '3', '4'].includes(savedCounter)) {
-                chooseCounter(savedCounter);
-                return;
-            }
-            selectorOverlayEl.style.display = 'flex';
-            const buttons = selectorOverlayEl.querySelectorAll('button[data-counter]');
-            buttons.forEach((btn) => {
-                btn.addEventListener('click', () => {
-                    chooseCounter(btn.getAttribute('data-counter') || '1');
-                });
-            });
-        }
-
-        initializeCounterSelection();
+        });
     </script>
 </body>
 </html>

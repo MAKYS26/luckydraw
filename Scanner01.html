@@ -635,13 +635,10 @@
                 
                 if (itemsData && Array.isArray(itemsData)) {
                     itemsData.forEach((item, index) => {
-                        const normalized = normalizeScanRecord(item, index);
-                        if (!normalized.content) return;
                         allItems.push({
                             id: index,
-                            content: normalized.content,
-                            counterId: normalized.counterId,
-                            timestamp: normalized.scannedAt || Date.now(),
+                            content: String(item),
+                            timestamp: Date.now(),
                             scannedBy: 'Scanner',
                             scanNumber: index + 1,
                             displayNumber: index + 1
@@ -714,7 +711,6 @@
             }
 
             const content = inputEl.value.trim();
-            const counterId = String(inputEl.getAttribute('data-scanner') || '');
 
             document.getElementById('duplicate-alert').style.display = 'none';
             document.getElementById('success-alert').style.display = 'none';
@@ -735,14 +731,14 @@
                     }
 
                     const isDuplicate = currentItems.some(item =>
-                        getScanContentText(item).toLowerCase() === content.toLowerCase()
+                        String(item).toLowerCase() === content.toLowerCase()
                     );
 
                     if (isDuplicate) {
                         duplicatesBlocked++;
 
                         const originalIndex = currentItems.findIndex(item =>
-                            getScanContentText(item).toLowerCase() === content.toLowerCase()
+                            String(item).toLowerCase() === content.toLowerCase()
                         );
                         const originalNumber = originalIndex + 1;
 
@@ -757,11 +753,7 @@
                         return;
                     }
 
-                    currentItems.push({
-                        content: content,
-                        counterId: counterId || 'unknown',
-                        scannedAt: Date.now()
-                    });
+                    currentItems.push(content);
 
                     return database.ref('drawResults/items').set(currentItems);
                 })
@@ -775,7 +767,6 @@
                         const newItem = {
                             id: allItems.length,
                             content: content,
-                            counterId: counterId || 'unknown',
                             timestamp: Date.now(),
                             scannedBy: getRandomUser(),
                             scanNumber: scanNumber,
@@ -954,34 +945,6 @@
             });
             
             return uniqueItems.sort((a, b) => b.scanNumber - a.scanNumber);
-        }
-
-        function getScanContentText(item) {
-            if (item == null) return '';
-            if (typeof item === 'object' && item !== null) {
-                if (item.content != null) return String(item.content).trim();
-                if (item.data != null) return String(item.data).trim();
-            }
-            return String(item).trim();
-        }
-
-        function normalizeScanRecord(item, index) {
-            const content = getScanContentText(item);
-            let counterId = '';
-            let scannedAt = Date.now();
-            if (typeof item === 'object' && item !== null) {
-                counterId = item.counterId != null ? String(item.counterId) : '';
-                const rawScannedAt = Number(item.scannedAt);
-                if (!Number.isNaN(rawScannedAt) && rawScannedAt > 0) {
-                    scannedAt = rawScannedAt;
-                }
-            }
-            return {
-                content: content,
-                counterId: counterId || 'legacy',
-                scannedAt: scannedAt,
-                index: index
-            };
         }
 
         // Initialize database if empty
