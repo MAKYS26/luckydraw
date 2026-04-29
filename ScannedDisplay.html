@@ -307,18 +307,19 @@
         }
 
         function initializeCounterSelection() {
-            const savedCounter = sessionStorage.getItem(COUNTER_STORAGE_KEY);
-            if (savedCounter && ['1', '2', '3', '4'].includes(savedCounter)) {
-                chooseCounter(savedCounter);
-                return;
-            }
-            selectorOverlayEl.style.display = 'flex';
             const buttons = selectorOverlayEl.querySelectorAll('button[data-counter]');
             buttons.forEach((btn) => {
                 btn.addEventListener('click', () => {
                     chooseCounter(btn.getAttribute('data-counter') || '1');
                 });
             });
+
+            const savedCounter = sessionStorage.getItem(COUNTER_STORAGE_KEY);
+            if (savedCounter && ['1', '2', '3', '4'].includes(savedCounter)) {
+                chooseCounter(savedCounter);
+                return;
+            }
+            selectorOverlayEl.style.display = 'flex';
         }
 
         changeCounterBtnEl.addEventListener('click', () => {
