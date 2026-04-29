@@ -435,6 +435,7 @@
         const FONT_SIZE_ONE_DRAW = 275;
         const FONT_SIZE_25_DRAWS = 62;
         let manualFontOverride = false;
+        let isEditingItems = false;
 
         const slotMachineSound = new Audio('slot-machine.mp3');
         slotMachineSound.loop = true;
@@ -542,6 +543,16 @@
 
         function removeDuplicates(array) {
             return Array.from(new Set(array));
+        }
+
+        function syncItemsTextareaFromState() {
+            const inputEl = document.getElementById('inputNames');
+            if (!inputEl) return;
+            if (isControl && isEditingItems) return;
+            const nextValue = items.join(', ');
+            if (inputEl.value !== nextValue) {
+                inputEl.value = nextValue;
+            }
         }
 
         function updatePreviousResults() {
@@ -843,13 +854,8 @@
                 const data = snapshot.val();
                 if (!data) return;
                 applyDrawResultsSnapshot(data);
-                if (isControl) {
-                    document.getElementById('inputNames').value = items.join(', ');
-                }
+                syncItemsTextareaFromState();
                 updatePreviousResults();
-                if (isControl) {
-                    writeDataToFirebase();
-                }
             });
         }
 
@@ -887,6 +893,15 @@
             const input = this.value;
             items = removeDuplicates(input.split(/[,|\n]+/).map(function (i) { return i.trim(); }).filter(Boolean));
             writeDataToFirebase();
+        });
+        document.getElementById('inputNames').addEventListener('focus', function () {
+            if (!isControl) return;
+            isEditingItems = true;
+        });
+        document.getElementById('inputNames').addEventListener('blur', function () {
+            if (!isControl) return;
+            isEditingItems = false;
+            syncItemsTextareaFromState();
         });
 
         document.addEventListener('DOMContentLoaded', function () {

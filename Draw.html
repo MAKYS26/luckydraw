@@ -407,6 +407,7 @@
         const FONT_SIZE_ONE_DRAW = 275;
         const FONT_SIZE_25_DRAWS = 62;
         let manualFontOverride = false;
+        let isEditingItems = false;
 
         function syncDrawPresetSelect() {
             const sel = document.getElementById('drawCountPreset');
@@ -478,11 +479,12 @@
                     
                     drawnItems = data.drawnItems || [];
                     allResults = data.allResults || [];
-                    document.getElementById('inputNames').value = items.join(', ');
+                    const inputEl = document.getElementById('inputNames');
+                    const nextValue = items.join(', ');
+                    if (inputEl && !isEditingItems && inputEl.value !== nextValue) {
+                        inputEl.value = nextValue;
+                    }
                     updatePreviousResults();
-                    
-                    // Write sanitized data back to Firebase
-                    writeDataToFirebase();
                 }
             });
         };
@@ -503,6 +505,16 @@
             const input = this.value;
             items = removeDuplicates(input.split(/[,|\n]+/).map(item => item.trim()).filter(item => item));
             writeDataToFirebase();
+        });
+        document.getElementById('inputNames').addEventListener('focus', function () {
+            isEditingItems = true;
+        });
+        document.getElementById('inputNames').addEventListener('blur', function () {
+            isEditingItems = false;
+            const nextValue = items.join(', ');
+            if (this.value !== nextValue) {
+                this.value = nextValue;
+            }
         });
 
         // Create an audio object for the slot machine sound
