@@ -63,15 +63,9 @@
             color: #fff;
             font-weight: 600;
             cursor: pointer;
-            opacity: 1;
-            transition: opacity 0.35s ease, background 0.2s ease;
         }
         .change-counter-btn:hover {
             background: rgba(255,255,255,0.18);
-        }
-        .change-counter-btn.is-faded {
-            opacity: 0;
-            pointer-events: none;
         }
         .total-badge {
             position: absolute;
@@ -217,11 +211,9 @@
         const changeCounterBtnEl = document.getElementById('changeCounterBtn');
         const selectorOverlayEl = document.getElementById('counterSelectorOverlay');
         const COUNTER_STORAGE_KEY = 'scannedDisplayCounterId';
-        const CHANGE_COUNTER_IDLE_MS = 2500;
         let selectedCounterId = '';
         let latestRecords = [];
         let isDisplaySyncStarted = false;
-        let changeCounterIdleTimer = null;
 
         function getScanContentText(item) {
             if (item == null) return '';
@@ -301,8 +293,6 @@
             applyCounterUi(selectedCounterId);
             selectorOverlayEl.style.display = 'none';
             changeCounterBtnEl.style.display = 'inline-block';
-            showChangeCounterButton();
-            resetChangeCounterIdleTimer();
             startDisplaySync();
         }
 
@@ -323,28 +313,6 @@
 
         changeCounterBtnEl.addEventListener('click', () => {
             selectorOverlayEl.style.display = 'flex';
-            showChangeCounterButton();
-        });
-
-        function showChangeCounterButton() {
-            if (changeCounterBtnEl.style.display === 'none') return;
-            changeCounterBtnEl.classList.remove('is-faded');
-        }
-
-        function hideChangeCounterButton() {
-            if (selectorOverlayEl.style.display === 'flex') return;
-            changeCounterBtnEl.classList.add('is-faded');
-        }
-
-        function resetChangeCounterIdleTimer() {
-            if (changeCounterBtnEl.style.display === 'none') return;
-            if (changeCounterIdleTimer) clearTimeout(changeCounterIdleTimer);
-            showChangeCounterButton();
-            changeCounterIdleTimer = setTimeout(hideChangeCounterButton, CHANGE_COUNTER_IDLE_MS);
-        }
-
-        ['mousemove', 'mousedown', 'touchstart', 'keydown'].forEach((evt) => {
-            document.addEventListener(evt, resetChangeCounterIdleTimer, { passive: true });
         });
 
         initializeCounterSelection();
