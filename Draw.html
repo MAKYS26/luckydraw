@@ -499,18 +499,11 @@
 
         function getItemContentText(item) {
             if (item == null) return '';
-            if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') {
-                return String(item);
+            if (typeof item === 'object' && item !== null) {
+                if (item.content != null) return String(item.content);
+                if (item.data != null) return String(item.data);
             }
-            if (Array.isArray(item)) {
-                return item.length ? getItemContentText(item[0]) : '';
-            }
-            if (typeof item === 'object') {
-                if (item.content != null) return getItemContentText(item.content);
-                if (item.data != null) return getItemContentText(item.data);
-                if (item.value != null) return getItemContentText(item.value);
-            }
-            return '';
+            return String(item);
         }
 
         function coerceItemsList(raw) {

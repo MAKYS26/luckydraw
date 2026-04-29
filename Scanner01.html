@@ -954,18 +954,11 @@
 
         function getScanContentText(item) {
             if (item == null) return '';
-            if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') {
-                return String(item).trim();
+            if (typeof item === 'object' && item !== null) {
+                if (item.content != null) return String(item.content).trim();
+                if (item.data != null) return String(item.data).trim();
             }
-            if (Array.isArray(item)) {
-                return item.length ? getScanContentText(item[0]) : '';
-            }
-            if (typeof item === 'object') {
-                if (item.content != null) return getScanContentText(item.content);
-                if (item.data != null) return getScanContentText(item.data);
-                if (item.value != null) return getScanContentText(item.value);
-            }
-            return '';
+            return String(item).trim();
         }
 
         function coerceItemsList(raw) {
