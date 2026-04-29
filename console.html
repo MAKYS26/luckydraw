@@ -839,15 +839,27 @@
             if (!data) return;
             const rawItems = coerceItemsList(data.items);
             items = rawItems.map(function (item) {
-                if (typeof item === 'object' && item !== null) {
-                    if (item.content != null) return String(item.content);
-                    if (item.data != null) return String(item.data);
-                }
-                return String(item);
+                return getItemContentText(item);
             });
             items = removeDuplicates(items.filter(function (x) { return x.trim() !== ''; }));
             drawnItems = data.drawnItems || [];
             allResults = data.allResults || [];
+        }
+
+        function getItemContentText(item) {
+            if (item == null) return '';
+            if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') {
+                return String(item);
+            }
+            if (Array.isArray(item)) {
+                return item.length ? getItemContentText(item[0]) : '';
+            }
+            if (typeof item === 'object') {
+                if (item.content != null) return getItemContentText(item.content);
+                if (item.data != null) return getItemContentText(item.data);
+                if (item.value != null) return getItemContentText(item.value);
+            }
+            return '';
         }
 
         function coerceItemsList(raw) {

@@ -125,11 +125,18 @@
 
         function normalizeContent(item) {
             if (item == null) return '';
-            if (typeof item === 'object' && item !== null) {
-                if (item.content != null) return String(item.content).trim();
-                if (item.data != null) return String(item.data).trim();
+            if (typeof item === 'string' || typeof item === 'number' || typeof item === 'boolean') {
+                return String(item).trim();
             }
-            return String(item).trim();
+            if (Array.isArray(item)) {
+                return item.length ? normalizeContent(item[0]) : '';
+            }
+            if (typeof item === 'object') {
+                if (item.content != null) return normalizeContent(item.content);
+                if (item.data != null) return normalizeContent(item.data);
+                if (item.value != null) return normalizeContent(item.value);
+            }
+            return '';
         }
 
         function coerceItemsList(raw) {
