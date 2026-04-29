@@ -53,6 +53,20 @@
             color: var(--text);
             background: rgba(255,255,255,0.06);
         }
+        .change-counter-btn {
+            margin-top: 10px;
+            margin-left: 10px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.35);
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .change-counter-btn:hover {
+            background: rgba(255,255,255,0.18);
+        }
         .total-badge {
             position: absolute;
             top: 50%;
@@ -151,6 +165,7 @@
         <h1>Cabutan Tiket Bertuah</h1>
         <p class="subtitle" id="subtitleText">Sila pastkan nombor tiket anda tertera di skrin</p>
         <div class="counter-badge" id="counterBadge" style="display:none;"></div>
+        <button class="change-counter-btn" id="changeCounterBtn" style="display:none;" type="button">Change Counter</button>
         <div class="total-badge" id="totalCount">0</div>
     </div>
 
@@ -193,9 +208,12 @@
         const emptyTextEl = document.getElementById('emptyText');
         const subtitleEl = document.getElementById('subtitleText');
         const counterBadgeEl = document.getElementById('counterBadge');
+        const changeCounterBtnEl = document.getElementById('changeCounterBtn');
         const selectorOverlayEl = document.getElementById('counterSelectorOverlay');
         const COUNTER_STORAGE_KEY = 'scannedDisplayCounterId';
         let selectedCounterId = '';
+        let latestRecords = [];
+        let isDisplaySyncStarted = false;
 
         function getScanContentText(item) {
             if (item == null) return '';
@@ -246,17 +264,26 @@
             });
         }
 
+        function renderSelectedCounter() {
+            const filtered = latestRecords.filter((record) => record.counterId === selectedCounterId);
+            filtered.sort((a, b) => b.id - a.id);
+            renderCounterItems(filtered);
+        }
+
         function startDisplaySync() {
+            if (isDisplaySyncStarted) {
+                renderSelectedCounter();
+                return;
+            }
+            isDisplaySyncStarted = true;
             database.ref('drawResults/items').on('value', (snapshot) => {
                 const raw = snapshot.val();
-                let records = [];
+                latestRecords = [];
                 if (raw && Array.isArray(raw)) {
-                    records = raw.map((item, index) => normalizeScanRecord(item, index))
+                    latestRecords = raw.map((item, index) => normalizeScanRecord(item, index))
                         .filter((record) => record.content);
                 }
-                const filtered = records.filter((record) => record.counterId === selectedCounterId);
-                filtered.sort((a, b) => b.id - a.id);
-                renderCounterItems(filtered);
+                renderSelectedCounter();
             });
         }
 
@@ -265,6 +292,7 @@
             sessionStorage.setItem(COUNTER_STORAGE_KEY, selectedCounterId);
             applyCounterUi(selectedCounterId);
             selectorOverlayEl.style.display = 'none';
+            changeCounterBtnEl.style.display = 'inline-block';
             startDisplaySync();
         }
 
@@ -282,6 +310,10 @@
                 });
             });
         }
+
+        changeCounterBtnEl.addEventListener('click', () => {
+            selectorOverlayEl.style.display = 'flex';
+        });
 
         initializeCounterSelection();
     </script>
