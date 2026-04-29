@@ -463,15 +463,11 @@
                 const data = snapshot.val();
                 if (data) {
                     // FIRST: SANITIZE DATA FOR BACKWARD COMPATIBILITY
-                    let rawItems = data.items || [];
+                    let rawItems = coerceItemsList(data.items);
                     
                     // Convert any objects back to strings (for backward compatibility)
                     items = rawItems.map(item => {
-                        if (typeof item === 'object' && item !== null && item.data) {
-                            console.log('Converting object to string:', item.data);
-                            return item.data; // Extract string from old object format
-                        }
-                        return String(item); // Ensure it's a string
+                        return getItemContentText(item);
                     });
                     
                     // Remove duplicates after sanitization
@@ -499,6 +495,23 @@
 
         function removeDuplicates(array) {
             return [...new Set(array)];
+        }
+
+        function getItemContentText(item) {
+            if (item == null) return '';
+            if (typeof item === 'object' && item !== null) {
+                if (item.content != null) return String(item.content);
+                if (item.data != null) return String(item.data);
+            }
+            return String(item);
+        }
+
+        function coerceItemsList(raw) {
+            if (Array.isArray(raw)) return raw;
+            if (!raw || typeof raw !== 'object') return [];
+            return Object.keys(raw)
+                .sort((a, b) => Number(a) - Number(b))
+                .map((k) => raw[k]);
         }
 
         document.getElementById('inputNames').addEventListener('input', function () {
@@ -771,15 +784,11 @@
                         return;
                     }
                     
-                    const rawItems = data.items || [];
+                    const rawItems = coerceItemsList(data.items);
                     
                     // Convert all items to strings
                     const sanitizedItems = rawItems.map(item => {
-                        if (typeof item === 'object' && item !== null && item.data) {
-                            console.log('Converting object to string:', item.data);
-                            return item.data;
-                        }
-                        return String(item);
+                        return getItemContentText(item);
                     }).filter(item => item.trim() !== '');
                     
                     // Remove duplicates

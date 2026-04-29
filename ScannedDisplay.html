@@ -232,6 +232,14 @@
             return String(item).trim();
         }
 
+        function coerceItemsList(raw) {
+            if (Array.isArray(raw)) return raw;
+            if (!raw || typeof raw !== 'object') return [];
+            return Object.keys(raw)
+                .sort((a, b) => Number(a) - Number(b))
+                .map((k) => raw[k]);
+        }
+
         function normalizeScanRecord(item, index) {
             const content = getScanContentText(item);
             let counterId = 'legacy';
@@ -285,12 +293,10 @@
             }
             isDisplaySyncStarted = true;
             database.ref('drawResults/items').on('value', (snapshot) => {
-                const raw = snapshot.val();
                 latestRecords = [];
-                if (raw && Array.isArray(raw)) {
-                    latestRecords = raw.map((item, index) => normalizeScanRecord(item, index))
-                        .filter((record) => record.content);
-                }
+                const list = coerceItemsList(snapshot.val());
+                latestRecords = list.map((item, index) => normalizeScanRecord(item, index))
+                    .filter((record) => record.content);
                 renderSelectedCounter();
             });
         }

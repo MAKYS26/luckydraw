@@ -630,10 +630,10 @@
             const itemsRef = database.ref('drawResults/items');
             
             itemsRef.on('value', (snapshot) => {
-                const itemsData = snapshot.val();
+                const itemsData = coerceItemsList(snapshot.val());
                 allItems = [];
                 
-                if (itemsData && Array.isArray(itemsData)) {
+                if (itemsData.length > 0) {
                     itemsData.forEach((item, index) => {
                         const normalized = normalizeScanRecord(item, index);
                         if (!normalized.content) return;
@@ -728,11 +728,7 @@
 
             database.ref('drawResults/items').once('value')
                 .then((snapshot) => {
-                    let currentItems = snapshot.val() || [];
-
-                    if (!Array.isArray(currentItems)) {
-                        currentItems = [];
-                    }
+                    let currentItems = coerceItemsList(snapshot.val());
 
                     const isDuplicate = currentItems.some(item =>
                         getScanContentText(item).toLowerCase() === content.toLowerCase()
@@ -963,6 +959,14 @@
                 if (item.data != null) return String(item.data).trim();
             }
             return String(item).trim();
+        }
+
+        function coerceItemsList(raw) {
+            if (Array.isArray(raw)) return raw;
+            if (!raw || typeof raw !== 'object') return [];
+            return Object.keys(raw)
+                .sort((a, b) => Number(a) - Number(b))
+                .map((k) => raw[k]);
         }
 
         function normalizeScanRecord(item, index) {
