@@ -132,21 +132,15 @@
             return String(item).trim();
         }
 
-        function coerceItemsList(raw) {
-            if (Array.isArray(raw)) return raw;
-            if (!raw || typeof raw !== 'object') return [];
-            return Object.keys(raw)
-                .sort((a, b) => Number(a) - Number(b))
-                .map((k) => raw[k]);
-        }
-
         database.ref('drawResults/items').on('value', (snapshot) => {
+            const raw = snapshot.val();
             let items = [];
-            const list = coerceItemsList(snapshot.val());
-            items = list
-                .map((item) => normalizeContent(item))
-                .filter((content) => content);
-            items.reverse();
+            if (raw && Array.isArray(raw)) {
+                items = raw
+                    .map((item) => normalizeContent(item))
+                    .filter((content) => content);
+                items.reverse();
+            }
 
             totalEl.textContent = items.length;
             emptyEl.style.display = items.length === 0 ? 'block' : 'none';
