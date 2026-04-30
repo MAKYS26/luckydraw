@@ -392,6 +392,23 @@
             <input type="number" class="form-control" id="fontSizeInput" min="10" value="71" style="margin-top: 10px;">
             <p class="mt-2 mb-0" style="font-size: 0.8rem; color: rgba(250, 235, 215, 0.65); line-height: 1.35;">Note: Font size 62px for 25 draws; font size 275px for 1 draw.</p>
         </div>
+        <div class="mt-4" id="forbiddenManagerCard">
+            <h3 style="color: antiquewhite; margin-bottom: 10px;">Forbidden Numbers / Entries</h3>
+            <p style="font-size: 0.82rem; color: rgba(250, 235, 215, 0.65); margin-bottom: 8px;">
+                Forbidden entries are tracked here, accepted during scanning, and automatically excluded from draws.
+            </p>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+                <span class="badge bg-danger">Forbidden List: <span id="forbiddenTotalCount">0</span></span>
+                <span class="badge bg-warning text-dark">Forbidden Scanned: <span id="forbiddenHitCount">0</span></span>
+                <span class="badge bg-info text-dark">Remaining Not Yet Scanned: <span id="forbiddenRemainingCount">0</span></span>
+            </div>
+            <label for="forbiddenImportInput" style="color: antiquewhite; font-size: 0.9rem;">Import CSV/TXT</label>
+            <input type="file" id="forbiddenImportInput" accept=".csv,.txt,text/plain" class="form-control" style="margin-top: 4px;">
+            <small id="forbiddenImportSummary" style="display:block; color: rgba(250, 235, 215, 0.6); margin-top: 6px;">No import processed yet.</small>
+            <label for="forbiddenTextarea" style="color: antiquewhite; font-size: 0.9rem; margin-top: 10px;">Manual Edit (comma/newline/semicolon separated)</label>
+            <textarea class="form-control" id="forbiddenTextarea" rows="4" style="margin-top: 6px;" placeholder="e.g. A1023, A2044"></textarea>
+            <button class="btn btn-danger mt-2" id="saveForbiddenButton"><i class="fas fa-ban"></i> Save Forbidden List</button>
+        </div>
         <br><br>
         <h3 style="color: antiquewhite;">Previous Draws:</h3>
         <ul id="previousResults" class="list-group" style="display:none"></ul>
@@ -431,6 +448,7 @@
         let currentFontSize = 71;
         let lastProcessedDrawId = null;
         let drawInProgress = false;
+        let forbiddenItems = [];
         const SESSION_TTL_MS = 3 * 60 * 1000;
         const FONT_SIZE_ONE_DRAW = 275;
         const FONT_SIZE_25_DRAWS = 62;
@@ -455,7 +473,10 @@
         }
 
         function getStablePool() {
-            const availableItems = items.filter(function(item) { return !drawnItems.includes(item); });
+            const forbiddenSet = getForbiddenSet();
+            const availableItems = items.filter(function(item) {
+                return !drawnItems.includes(item) && !forbiddenSet.has(normalizeTicket(item));
+            });
             availableItems.sort(function(a, b) { return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }); });
             return availableItems;
         }
@@ -482,7 +503,8 @@
             database.ref('drawResults').update({
                 items: items,
                 drawnItems: drawnItems,
-                allResults: allResults
+                allResults: allResults,
+                forbiddenItems: forbiddenItems
             });
         }
 
@@ -543,6 +565,34 @@
 
         function removeDuplicates(array) {
             return Array.from(new Set(array));
+        }
+
+        function normalizeTicket(value) {
+            return String(value || '').trim().toLowerCase();
+        }
+
+        function parseTokenList(rawText) {
+            return removeDuplicates(
+                String(rawText || '')
+                    .split(/[\n,;]+/)
+                    .map(function (x) { return x.trim(); })
+                    .filter(Boolean)
+            );
+        }
+
+        function getForbiddenSet() {
+            return new Set(forbiddenItems.map(function (x) { return normalizeTicket(x); }));
+        }
+
+        function updateForbiddenCounts() {
+            const forbiddenSet = getForbiddenSet();
+            const scannedForbidden = new Set(items.map(function (x) { return normalizeTicket(x); }).filter(function (k) { return forbiddenSet.has(k); }));
+            const totalEl = document.getElementById('forbiddenTotalCount');
+            const hitEl = document.getElementById('forbiddenHitCount');
+            const remEl = document.getElementById('forbiddenRemainingCount');
+            if (totalEl) totalEl.textContent = String(forbiddenItems.length);
+            if (hitEl) hitEl.textContent = String(scannedForbidden.size);
+            if (remEl) remEl.textContent = String(Math.max(0, forbiddenItems.length - scannedForbidden.size));
         }
 
         function syncItemsTextareaFromState() {
@@ -702,7 +752,7 @@
         function queueDraw() {
             if (!isControl) return;
             const numberOfDraws = parseInt(document.getElementById('numberOfDraws').value, 10) || 1;
-            const availableCount = items.filter(function(item) { return !drawnItems.includes(item); }).length;
+            const availableCount = getStablePool().length;
             if (availableCount === 0) {
                 alert('No items left to draw. Add more items or clear drawn history.');
                 return;
@@ -808,6 +858,46 @@
             alert("Draw history has been cleared. All drawn items have been restored to the pool.");
         });
 
+        document.getElementById('saveForbiddenButton').addEventListener('click', function () {
+            if (!isControl) return;
+            const textarea = document.getElementById('forbiddenTextarea');
+            forbiddenItems = parseTokenList(textarea ? textarea.value : '');
+            if (textarea) textarea.value = forbiddenItems.join('\n');
+            updateForbiddenCounts();
+            writeDataToFirebase();
+            alert('Forbidden list saved (' + forbiddenItems.length + ' entries).');
+        });
+
+        document.getElementById('forbiddenImportInput').addEventListener('change', function (evt) {
+            if (!isControl) return;
+            const file = evt.target && evt.target.files && evt.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const imported = parseTokenList(e && e.target ? e.target.result : '');
+                const existingSet = new Set(forbiddenItems.map(function (x) { return normalizeTicket(x); }));
+                let added = 0;
+                imported.forEach(function (val) {
+                    const key = normalizeTicket(val);
+                    if (!existingSet.has(key)) {
+                        existingSet.add(key);
+                        forbiddenItems.push(val);
+                        added++;
+                    }
+                });
+                forbiddenItems = removeDuplicates(forbiddenItems);
+                const textarea = document.getElementById('forbiddenTextarea');
+                if (textarea) textarea.value = forbiddenItems.join('\n');
+                updateForbiddenCounts();
+                writeDataToFirebase();
+                const summary = document.getElementById('forbiddenImportSummary');
+                if (summary) {
+                    summary.textContent = 'Imported: ' + imported.length + ', Added: ' + added + ', Duplicates/Existing: ' + (imported.length - added) + '.';
+                }
+            };
+            reader.readAsText(file);
+        });
+
         document.getElementById('drawCountPreset').addEventListener('change', function () {
             if (!isControl) return;
             if (this.value === 'custom') return;
@@ -839,14 +929,24 @@
             if (!data) return;
             const rawItems = data.items || [];
             items = rawItems.map(function (item) {
-                if (typeof item === 'object' && item !== null && item.data) {
-                    return item.data;
+                if (typeof item === 'object' && item !== null) {
+                    if (item.content != null) return String(item.content);
+                    if (item.data != null) return String(item.data);
                 }
                 return String(item);
             });
             items = removeDuplicates(items.filter(function (x) { return x.trim() !== ''; }));
             drawnItems = data.drawnItems || [];
             allResults = data.allResults || [];
+            forbiddenItems = removeDuplicates((data.forbiddenItems || []).map(function (item) {
+                if (typeof item === 'object' && item !== null && item.data) return String(item.data);
+                return String(item);
+            }).filter(function (x) { return x.trim() !== ''; }));
+            const forbiddenTextarea = document.getElementById('forbiddenTextarea');
+            if (forbiddenTextarea && !forbiddenTextarea.matches(':focus')) {
+                forbiddenTextarea.value = forbiddenItems.join('\n');
+            }
+            updateForbiddenCounts();
         }
 
         function syncDrawResultsFromFirebase() {
@@ -913,6 +1013,8 @@
             if (isDisplay) {
                 document.getElementById('drawButton').style.display = 'none';
                 document.getElementById('removeDrawnButton').style.display = 'none';
+                const mgr = document.getElementById('forbiddenManagerCard');
+                if (mgr) mgr.style.display = 'none';
             }
             const inp = document.getElementById('inputNames');
             if (inp) inp.readOnly = !isControl;
@@ -985,7 +1087,8 @@
                     return database.ref('drawResults').update({
                         items: uniqueItems,
                         drawnItems: data.drawnItems || [],
-                        allResults: data.allResults || []
+                        allResults: data.allResults || [],
+                        forbiddenItems: data.forbiddenItems || []
                     });
                 })
                 .then(() => {

@@ -403,6 +403,7 @@
         let items = [];
         let drawnItems = [];
         let allResults = [];
+        let forbiddenItems = [];
         let currentFontSize = 71;
         const FONT_SIZE_ONE_DRAW = 275;
         const FONT_SIZE_25_DRAWS = 62;
@@ -479,6 +480,7 @@
                     
                     drawnItems = data.drawnItems || [];
                     allResults = data.allResults || [];
+                    forbiddenItems = removeDuplicates((data.forbiddenItems || []).map(item => getItemContentText(item)).filter(item => item.trim() !== ''));
                     const inputEl = document.getElementById('inputNames');
                     const nextValue = items.join(', ');
                     if (inputEl && !isEditingItems && inputEl.value !== nextValue) {
@@ -493,12 +495,17 @@
             firebase.database().ref('drawResults').update({
                 items: items,
                 drawnItems: drawnItems,
-                allResults: allResults
+                allResults: allResults,
+                forbiddenItems: forbiddenItems
             });
         }
 
         function removeDuplicates(array) {
             return [...new Set(array)];
+        }
+
+        function normalizeTicket(value) {
+            return String(value || '').trim().toLowerCase();
         }
 
         document.getElementById('inputNames').addEventListener('input', function () {
@@ -523,7 +530,8 @@
 
         document.getElementById('drawButton').addEventListener('click', function () {
             const numberOfDraws = parseInt(document.getElementById('numberOfDraws').value, 10);
-            const availableCount = items.filter(item => !drawnItems.includes(item)).length;
+            const forbiddenSet = new Set(forbiddenItems.map(item => normalizeTicket(item)));
+            const availableCount = items.filter(item => !drawnItems.includes(item) && !forbiddenSet.has(normalizeTicket(item))).length;
             if (availableCount === 0) {
                 alert("No items left to draw. Add more items or clear drawn history.");
                 return;
@@ -567,7 +575,7 @@
                     return;
                 }
 
-                const availableItems = items.filter(item => !drawnItems.includes(item));
+                const availableItems = items.filter(item => !drawnItems.includes(item) && !forbiddenSet.has(normalizeTicket(item)));
                 const shuffledItems = availableItems.sort(() => 0.5 - Math.random());
                 const selectedItems = shuffledItems.slice(0, numberOfDraws);
 

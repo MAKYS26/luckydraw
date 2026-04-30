@@ -122,6 +122,18 @@
             background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
             border-color: #10b981;
         }
+        .item-card.forbidden-item {
+            border-color: #dc3545;
+            background: linear-gradient(135deg, rgba(220, 53, 69, 0.12), rgba(255, 255, 255, 0.02));
+        }
+        .forbidden-badge {
+            display: inline-block;
+            margin-top: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: #ffb3be;
+        }
 
         /* UPDATED: Improved item number styling */
         .item-number {
@@ -412,22 +424,28 @@
         
         <!-- Stats Section -->
         <div class="row mb-4">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="stats-card">
                     <h5>Total Scanned</h5>
                     <h2 id="total-count" class="text-primary">0</h2>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="stats-card">
                     <h5>Unique Items</h5>
                     <h2 id="unique-count" class="text-success">0</h2>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="stats-card">
                     <h5>Duplicates Blocked</h5>
                     <h2 id="duplicate-count" class="text-warning">0</h2>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <h5>Forbidden Scanned</h5>
+                    <h2 id="forbidden-count" class="text-danger">0</h2>
                 </div>
             </div>
         </div>
@@ -556,6 +574,7 @@
         let isProcessing = false;
         let lastAddedItemId = null;
         let isDarkMode = false;
+        let forbiddenItemsSet = new Set();
 
         // Initialize the app
         document.addEventListener('DOMContentLoaded', function() {
@@ -628,24 +647,45 @@
         // Set up Firebase real-time listeners
         function setupFirebaseListeners() {
             const itemsRef = database.ref('drawResults/items');
+            const forbiddenRef = database.ref('drawResults/forbiddenItems');
             
             itemsRef.on('value', (snapshot) => {
-                const itemsData = snapshot.val();
+                const itemsData = toArray(snapshot.val());
                 allItems = [];
                 
-                if (itemsData && Array.isArray(itemsData)) {
+                if (itemsData.length > 0) {
                     itemsData.forEach((item, index) => {
+                        const content = getItemContent(item);
+                        if (!content) return;
+                        const normalized = normalizeTicket(content);
                         allItems.push({
                             id: index,
-                            content: String(item),
+                            content: content,
                             timestamp: Date.now(),
                             scannedBy: 'Scanner',
                             scanNumber: index + 1,
-                            displayNumber: index + 1
+                            displayNumber: index + 1,
+                            normalized: normalized,
+                            isForbidden: forbiddenItemsSet.has(normalized)
                         });
                     });
                 }
                 
+                updateDisplay();
+                updateStats();
+            });
+
+            forbiddenRef.on('value', (snapshot) => {
+                const raw = toArray(snapshot.val());
+                forbiddenItemsSet = new Set(
+                    raw
+                        .map((item) => normalizeTicket(getItemContent(item)))
+                        .filter(Boolean)
+                );
+                allItems = allItems.map((item) => ({
+                    ...item,
+                    isForbidden: forbiddenItemsSet.has(item.normalized)
+                }));
                 updateDisplay();
                 updateStats();
             });
@@ -724,21 +764,18 @@
 
             database.ref('drawResults/items').once('value')
                 .then((snapshot) => {
-                    let currentItems = snapshot.val() || [];
-
-                    if (!Array.isArray(currentItems)) {
-                        currentItems = [];
-                    }
+                    let currentItems = toArray(snapshot.val());
+                    const normalizedContent = normalizeTicket(content);
 
                     const isDuplicate = currentItems.some(item =>
-                        String(item).toLowerCase() === content.toLowerCase()
+                        normalizeTicket(getItemContent(item)) === normalizedContent
                     );
 
                     if (isDuplicate) {
                         duplicatesBlocked++;
 
                         const originalIndex = currentItems.findIndex(item =>
-                            String(item).toLowerCase() === content.toLowerCase()
+                            normalizeTicket(getItemContent(item)) === normalizedContent
                         );
                         const originalNumber = originalIndex + 1;
 
@@ -760,9 +797,16 @@
                 .then((result) => {
                     if (result) {
                         const scanNumber = allItems.length + 1;
+                        const normalizedContent = normalizeTicket(content);
+                        const isForbidden = forbiddenItemsSet.has(normalizedContent);
 
                         document.getElementById('success-alert').style.display = 'block';
-                        showScanIndicator(`Added as item #${scanNumber}`, 'success');
+                        showScanIndicator(
+                            isForbidden
+                                ? `Added as item #${scanNumber} (FORBIDDEN)`
+                                : `Added as item #${scanNumber}`,
+                            isForbidden ? 'warning' : 'success'
+                        );
 
                         const newItem = {
                             id: allItems.length,
@@ -770,7 +814,9 @@
                             timestamp: Date.now(),
                             scannedBy: getRandomUser(),
                             scanNumber: scanNumber,
-                            displayNumber: scanNumber
+                            displayNumber: scanNumber,
+                            normalized: normalizedContent,
+                            isForbidden: isForbidden
                         };
 
                         allItems.push(newItem);
@@ -812,9 +858,9 @@
             const seenContent = new Set();
             
             allItems.forEach(item => {
-                const contentLower = item.content.toLowerCase();
-                if (!seenContent.has(contentLower)) {
-                    seenContent.add(contentLower);
+                const dedupeKey = item.normalized || normalizeTicket(item.content);
+                if (!seenContent.has(dedupeKey)) {
+                    seenContent.add(dedupeKey);
                     uniqueItems.push(item);
                 }
             });
@@ -832,11 +878,13 @@
                 let cardClass = 'item-card';
                 if (isHighlighted) cardClass += ' highlighted';
                 if (isNewItem) cardClass += ' new-item';
+                if (item.isForbidden) cardClass += ' forbidden-item';
                 
                 html += `
                     <div class="${cardClass}">
                         <div class="item-number">#${item.displayNumber || item.scanNumber}</div>
                         <div class="item-content">${escapeHtml(item.content)}</div>
+                        ${item.isForbidden ? '<div class="forbidden-badge">FORBIDDEN / EXCLUDED FROM DRAW</div>' : ''}
                     </div>
                 `;
             });
@@ -861,12 +909,17 @@
             
             const uniqueContent = new Set();
             allItems.forEach(item => {
-                uniqueContent.add(item.content.toLowerCase());
+                uniqueContent.add(item.normalized || normalizeTicket(item.content));
             });
             
             const uniqueItems = Array.from(uniqueContent).length;
             document.getElementById('unique-count').textContent = uniqueItems;
             document.getElementById('duplicate-count').textContent = duplicatesBlocked;
+            let forbiddenUnique = 0;
+            uniqueContent.forEach((k) => {
+                if (forbiddenItemsSet.has(k)) forbiddenUnique++;
+            });
+            document.getElementById('forbidden-count').textContent = forbiddenUnique;
         }
 
         // Search items
@@ -937,9 +990,9 @@
             const seenContent = new Set();
             
             allItems.forEach(item => {
-                const contentLower = item.content.toLowerCase();
-                if (!seenContent.has(contentLower)) {
-                    seenContent.add(contentLower);
+                const dedupeKey = item.normalized || normalizeTicket(item.content);
+                if (!seenContent.has(dedupeKey)) {
+                    seenContent.add(dedupeKey);
                     uniqueItems.push(item);
                 }
             });
@@ -972,6 +1025,27 @@
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        function normalizeTicket(value) {
+            return String(value || '').trim().toLowerCase();
+        }
+
+        function getItemContent(item) {
+            if (item == null) return '';
+            if (typeof item === 'object' && item !== null) {
+                if (item.content != null) return String(item.content).trim();
+                if (item.data != null) return String(item.data).trim();
+            }
+            return String(item).trim();
+        }
+
+        function toArray(raw) {
+            if (Array.isArray(raw)) return raw;
+            if (!raw || typeof raw !== 'object') return [];
+            return Object.keys(raw)
+                .sort((a, b) => Number(a) - Number(b))
+                .map((k) => raw[k]);
         }
 
         console.log('QR Scanner Ready!');
