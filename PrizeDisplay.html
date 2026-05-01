@@ -98,22 +98,6 @@
 
         .prize-cell { position: relative; }
 
-        .prize-cell.cell-page-reveal {
-            animation: prizeCellPageReveal 0.52s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-            animation-delay: calc(var(--cell-stagger, 0) * 22ms);
-        }
-
-        @keyframes prizeCellPageReveal {
-            from {
-                opacity: 0;
-                transform: translateY(14px) scale(0.94);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
         .ctrl-bar {
             position: fixed;
             bottom: 12px;
@@ -150,12 +134,6 @@
             color: var(--text-muted);
             min-width: 4.5rem;
             text-align: center;
-            transition: color 0.25s, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-        }
-
-        .ctrl-bar .page-indicator.pulse {
-            color: var(--accent);
-            transform: scale(1.12);
         }
 
         .ctrl-bar button {
@@ -229,8 +207,7 @@
         const CELLS_PER_PAGE = 25;
         const TOTAL_CELLS = 300;
         const TOTAL_PAGES = 12;
-        const PAGE_TRANSITION_OUT_MS = 380;
-        const PAGE_TRANSITION_IN_MS = 460;
+        const PAGE_TRANSITION_MS = 260;
         let currentPage = 0;
         let prizes = [];
         let results = [];
@@ -257,33 +234,6 @@
 
         }
 
-        function clearCellPageReveal() {
-            cells.forEach((cell) => {
-                cell.classList.remove('cell-page-reveal');
-                cell.style.removeProperty('--cell-stagger');
-            });
-        }
-
-        function runCellPageReveal() {
-            clearCellPageReveal();
-            const start = currentPage * CELLS_PER_PAGE;
-            for (let k = 0; k < CELLS_PER_PAGE; k++) {
-                const i = start + k;
-                const cell = cells[i];
-                if (!cell) continue;
-                const row = Math.floor(k / 5);
-                const col = k % 5;
-                cell.style.setProperty('--cell-stagger', col + row);
-                cell.classList.add('cell-page-reveal');
-            }
-        }
-
-        function pulsePageIndicator() {
-            const el = document.getElementById('pageIndicator');
-            el.classList.add('pulse');
-            setTimeout(() => el.classList.remove('pulse'), 380);
-        }
-
         function applyPageVisibility(p) {
             currentPage = p;
             const start = p * CELLS_PER_PAGE;
@@ -299,65 +249,36 @@
         function resetGridMotionStyles(grid) {
             grid.style.transition = '';
             grid.style.opacity = '';
-            grid.style.transform = '';
         }
 
         /**
          * @param {number} p - page index 0..TOTAL_PAGES-1
-         * @param {{ animate?: boolean, direction?: number }} [opts] - direction: +1 next, -1 prev, 0 / omit = no slide
+         * @param {{ animate?: boolean }} [opts]
          */
         function goToPage(p, opts) {
             opts = opts || {};
-            const dir = opts.direction;
-            const shouldAnimate = opts.animate !== false && (dir === 1 || dir === -1);
+            const shouldAnimate = opts.animate !== false;
             const grid = document.getElementById('gridContainer');
 
             if (!shouldAnimate) {
-                clearCellPageReveal();
                 applyPageVisibility(p);
                 resetGridMotionStyles(grid);
-                if (!opts.initial) {
-                    runCellPageReveal();
-                }
                 return;
             }
 
             if (pageAnimating) return;
             pageAnimating = true;
-            clearCellPageReveal();
-
-            const easeOut = 'cubic-bezier(0.4, 0, 0.2, 1)';
-            const easeIn = 'cubic-bezier(0.22, 1, 0.36, 1)';
-            const slide = '2.75rem';
-            const outX = dir > 0 ? '-' + slide : slide;
-
-            grid.style.transition = `opacity ${PAGE_TRANSITION_OUT_MS}ms ${easeOut}, transform ${PAGE_TRANSITION_OUT_MS}ms ${easeOut}`;
+            grid.style.transition = `opacity ${PAGE_TRANSITION_MS}ms ease`;
             grid.style.opacity = '0';
-            grid.style.transform = `translateX(${outX}) scale(0.97)`;
-
             setTimeout(() => {
                 applyPageVisibility(p);
-                pulsePageIndicator();
-
-                const inFrom = dir > 0 ? slide : '-' + slide;
-                grid.style.transition = 'none';
-                grid.style.opacity = '0';
-                grid.style.transform = `translateX(${inFrom}) scale(0.97)`;
-
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        grid.style.transition = `opacity ${PAGE_TRANSITION_IN_MS}ms ${easeIn}, transform ${PAGE_TRANSITION_IN_MS}ms ${easeIn}`;
-                        grid.style.opacity = '1';
-                        grid.style.transform = 'translateX(0) scale(1)';
-                    });
-                });
-
+                grid.style.transition = `opacity ${PAGE_TRANSITION_MS}ms ease`;
+                grid.style.opacity = '1';
                 setTimeout(() => {
                     resetGridMotionStyles(grid);
                     pageAnimating = false;
-                    runCellPageReveal();
-                }, PAGE_TRANSITION_IN_MS + 40);
-            }, PAGE_TRANSITION_OUT_MS);
+                }, PAGE_TRANSITION_MS + 20);
+            }, PAGE_TRANSITION_MS);
         }
 
         function render() {
@@ -408,13 +329,13 @@
         function prevPage() {
             if (pageAnimating) return;
             const p = (currentPage - 1 + TOTAL_PAGES) % TOTAL_PAGES;
-            goToPage(p, { direction: -1 });
+            goToPage(p);
         }
 
         function nextPage() {
             if (pageAnimating) return;
             const p = (currentPage + 1) % TOTAL_PAGES;
-            goToPage(p, { direction: 1 });
+            goToPage(p);
         }
 
         document.addEventListener('keydown', (e) => {
@@ -460,7 +381,7 @@
         resetIdle();
 
         buildGrid();
-        goToPage(0, { animate: false, direction: 0, initial: true });
+        goToPage(0, { animate: false });
     </script>
 </body>
 </html>
