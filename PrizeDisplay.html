@@ -207,7 +207,9 @@
         const CELLS_PER_PAGE = 25;
         const TOTAL_CELLS = 300;
         const TOTAL_PAGES = 12;
-        const PAGE_TRANSITION_MS = 260;
+        const PAGE_FADE_OUT_MS = 220;
+        const PAGE_FADE_IN_MS = 360;
+        const PAGE_FADE_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
         let currentPage = 0;
         let prizes = [];
         let results = [];
@@ -268,17 +270,21 @@
 
             if (pageAnimating) return;
             pageAnimating = true;
-            grid.style.transition = `opacity ${PAGE_TRANSITION_MS}ms ease`;
+            grid.style.transition = `opacity ${PAGE_FADE_OUT_MS}ms ${PAGE_FADE_EASING}`;
             grid.style.opacity = '0';
             setTimeout(() => {
                 applyPageVisibility(p);
-                grid.style.transition = `opacity ${PAGE_TRANSITION_MS}ms ease`;
-                grid.style.opacity = '1';
-                setTimeout(() => {
-                    resetGridMotionStyles(grid);
-                    pageAnimating = false;
-                }, PAGE_TRANSITION_MS + 20);
-            }, PAGE_TRANSITION_MS);
+                grid.style.transition = 'none';
+                grid.style.opacity = '0';
+                requestAnimationFrame(() => {
+                    grid.style.transition = `opacity ${PAGE_FADE_IN_MS}ms ${PAGE_FADE_EASING}`;
+                    grid.style.opacity = '1';
+                    setTimeout(() => {
+                        resetGridMotionStyles(grid);
+                        pageAnimating = false;
+                    }, PAGE_FADE_IN_MS + 30);
+                });
+            }, PAGE_FADE_OUT_MS);
         }
 
         function render() {
