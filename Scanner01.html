@@ -520,6 +520,27 @@
             </div>
         </div>
 
+        <!-- Forbidden entries: manage list here; scans still accepted, excluded from draw -->
+        <div class="search-container" id="forbiddenManagerCard">
+            <h3>Forbidden Numbers / Entries</h3>
+            <p class="text-muted mb-2" style="font-size: 0.9rem;">
+                Edit or import ineligible ticket numbers. Guests can still scan; items show as forbidden below and are excluded from the lucky draw pool.
+            </p>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <span class="badge bg-danger">Forbidden List: <span id="scannerForbiddenTotalCount">0</span></span>
+                <span class="badge bg-warning text-dark">Forbidden Scanned: <span id="scannerForbiddenHitCount">0</span></span>
+                <span class="badge bg-info text-dark">Remaining Not Yet Scanned: <span id="scannerForbiddenRemainingCount">0</span></span>
+            </div>
+            <label for="scannerForbiddenImportInput" class="form-label">Import CSV/TXT</label>
+            <input type="file" id="scannerForbiddenImportInput" class="form-control" accept=".csv,.txt,text/plain">
+            <small id="scannerForbiddenImportSummary" class="text-muted d-block mt-2">No import processed yet.</small>
+            <label for="scannerForbiddenTextarea" class="form-label mt-3">Manual edit (comma, newline, or semicolon separated)</label>
+            <textarea class="form-control" id="scannerForbiddenTextarea" rows="4" placeholder="e.g. A1023, A2044"></textarea>
+            <button type="button" class="btn btn-danger mt-2" id="scannerForbiddenSaveBtn">
+                <i class="bi bi-slash-circle"></i> Save Forbidden List
+            </button>
+        </div>
+
         <!-- Search Section -->
         <div class="search-container">
             <h5>🔍 Search Items</h5>
@@ -575,11 +596,13 @@
         let lastAddedItemId = null;
         let isDarkMode = false;
         let forbiddenItemsSet = new Set();
+        let forbiddenItemsArr = [];
 
         // Initialize the app
         document.addEventListener('DOMContentLoaded', function() {
             setupFirebaseListeners();
             setupEventListeners();
+            setupForbiddenManagerListeners();
             initializeDatabase();
             initializeTheme();
         });
@@ -673,21 +696,112 @@
                 
                 updateDisplay();
                 updateStats();
+                updateForbiddenManagerStats();
             });
 
             forbiddenRef.on('value', (snapshot) => {
-                const raw = toArray(snapshot.val());
-                forbiddenItemsSet = new Set(
-                    raw
-                        .map((item) => normalizeTicket(getItemContent(item)))
-                        .filter(Boolean)
-                );
-                allItems = allItems.map((item) => ({
-                    ...item,
-                    isForbidden: forbiddenItemsSet.has(item.normalized)
-                }));
-                updateDisplay();
-                updateStats();
+                applyForbiddenSnapshot(snapshot.val());
+            });
+        }
+
+        function dedupeTokenList(tokens) {
+            const seen = new Set();
+            const out = [];
+            tokens.forEach((t) => {
+                const key = normalizeTicket(t);
+                if (!key || seen.has(key)) return;
+                seen.add(key);
+                out.push(String(t).trim());
+            });
+            return out;
+        }
+
+        function parseForbiddenText(rawText) {
+            return dedupeTokenList(
+                String(rawText || '')
+                    .split(/[\n,;]+/)
+                    .map((s) => s.trim())
+                    .filter(Boolean)
+            );
+        }
+
+        function applyForbiddenSnapshot(val) {
+            const raw = toArray(val);
+            forbiddenItemsArr = dedupeTokenList(raw.map((item) => getItemContent(item)).filter(Boolean));
+            forbiddenItemsSet = new Set(forbiddenItemsArr.map((x) => normalizeTicket(x)));
+            const ta = document.getElementById('scannerForbiddenTextarea');
+            if (ta && document.activeElement !== ta) {
+                ta.value = forbiddenItemsArr.join('\n');
+            }
+            allItems = allItems.map((item) => ({
+                ...item,
+                isForbidden: forbiddenItemsSet.has(item.normalized)
+            }));
+            updateDisplay();
+            updateStats();
+            updateForbiddenManagerStats();
+        }
+
+        function updateForbiddenManagerStats() {
+            const totalEl = document.getElementById('scannerForbiddenTotalCount');
+            const hitEl = document.getElementById('scannerForbiddenHitCount');
+            const remEl = document.getElementById('scannerForbiddenRemainingCount');
+            const total = forbiddenItemsArr.length;
+            const scannedUnique = new Set();
+            allItems.forEach((item) => {
+                if (forbiddenItemsSet.has(item.normalized)) scannedUnique.add(item.normalized);
+            });
+            const hit = scannedUnique.size;
+            const rem = Math.max(0, total - hit);
+            if (totalEl) totalEl.textContent = String(total);
+            if (hitEl) hitEl.textContent = String(hit);
+            if (remEl) remEl.textContent = String(rem);
+        }
+
+        function setupForbiddenManagerListeners() {
+            document.getElementById('scannerForbiddenSaveBtn').addEventListener('click', () => {
+                const ta = document.getElementById('scannerForbiddenTextarea');
+                const list = parseForbiddenText(ta ? ta.value : '');
+                if (ta) ta.value = list.join('\n');
+                database.ref('drawResults').update({ forbiddenItems: list });
+                alert('Forbidden list saved (' + list.length + ' entries).');
+            });
+
+            document.getElementById('scannerForbiddenImportInput').addEventListener('change', (evt) => {
+                const file = evt.target && evt.target.files && evt.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imported = parseForbiddenText(e && e.target ? e.target.result : '');
+                    const existingSet = new Set(forbiddenItemsArr.map((x) => normalizeTicket(x)));
+                    let added = 0;
+                    imported.forEach((val) => {
+                        const key = normalizeTicket(val);
+                        if (!existingSet.has(key)) {
+                            existingSet.add(key);
+                            forbiddenItemsArr.push(val);
+                            added++;
+                        }
+                    });
+                    forbiddenItemsArr = dedupeTokenList(forbiddenItemsArr);
+                    forbiddenItemsSet = new Set(forbiddenItemsArr.map((x) => normalizeTicket(x)));
+                    const ta = document.getElementById('scannerForbiddenTextarea');
+                    if (ta) ta.value = forbiddenItemsArr.join('\n');
+                    database.ref('drawResults').update({ forbiddenItems: forbiddenItemsArr });
+                    const summary = document.getElementById('scannerForbiddenImportSummary');
+                    if (summary) {
+                        summary.textContent =
+                            'Imported: ' + imported.length + ', Added: ' + added + ', Duplicates/Existing: ' + (imported.length - added) + '.';
+                    }
+                    allItems = allItems.map((item) => ({
+                        ...item,
+                        isForbidden: forbiddenItemsSet.has(item.normalized)
+                    }));
+                    updateDisplay();
+                    updateStats();
+                    updateForbiddenManagerStats();
+                };
+                reader.readAsText(file);
             });
         }
 
