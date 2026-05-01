@@ -410,6 +410,36 @@
         let manualFontOverride = false;
         let isEditingItems = false;
 
+        function getForbiddenSet() {
+            return new Set(forbiddenItems.map(item => normalizeTicket(item)));
+        }
+
+        /** Forbidden tickets stay in `items` for tracking but are hidden from this textarea. */
+        function getItemsForbiddenOnlyInPool() {
+            const fs = getForbiddenSet();
+            return items.filter(item => fs.has(normalizeTicket(item)));
+        }
+
+        function getItemsTextareaDisplayValue() {
+            const fs = getForbiddenSet();
+            return items.filter(item => !fs.has(normalizeTicket(item))).join(', ');
+        }
+
+        function mergeTextareaEligibleWithForbiddenInPool(parsedEligible) {
+            const forbiddenOnly = getItemsForbiddenOnlyInPool();
+            items = removeDuplicates(parsedEligible.concat(forbiddenOnly));
+        }
+
+        function syncItemsTextareaFromState() {
+            const inputEl = document.getElementById('inputNames');
+            if (!inputEl) return;
+            if (isEditingItems) return;
+            const nextValue = getItemsTextareaDisplayValue();
+            if (inputEl.value !== nextValue) {
+                inputEl.value = nextValue;
+            }
+        }
+
         function syncDrawPresetSelect() {
             const sel = document.getElementById('drawCountPreset');
             if (!sel) return;
@@ -463,29 +493,26 @@
             firebase.database().ref('drawResults').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
-                    // FIRST: SANITIZE DATA FOR BACKWARD COMPATIBILITY
-                    let rawItems = data.items || [];
-                    
-                    // Convert any objects back to strings (for backward compatibility)
+                    const rawItems = data.items || [];
                     items = rawItems.map(item => {
-                        if (typeof item === 'object' && item !== null && item.data) {
-                            console.log('Converting object to string:', item.data);
-                            return item.data; // Extract string from old object format
+                        if (typeof item === 'object' && item !== null) {
+                            if (item.content != null) return String(item.content);
+                            if (item.data != null) return String(item.data);
                         }
-                        return String(item); // Ensure it's a string
+                        return String(item);
                     });
-                    
-                    // Remove duplicates after sanitization
                     items = removeDuplicates(items.filter(item => item.trim() !== ''));
-                    
+
                     drawnItems = data.drawnItems || [];
                     allResults = data.allResults || [];
-                    forbiddenItems = removeDuplicates((data.forbiddenItems || []).map(item => getItemContentText(item)).filter(item => item.trim() !== ''));
-                    const inputEl = document.getElementById('inputNames');
-                    const nextValue = items.join(', ');
-                    if (inputEl && !isEditingItems && inputEl.value !== nextValue) {
-                        inputEl.value = nextValue;
-                    }
+                    forbiddenItems = removeDuplicates((data.forbiddenItems || []).map(item => {
+                        if (typeof item === 'object' && item !== null) {
+                            if (item.content != null) return String(item.content);
+                            if (item.data != null) return String(item.data);
+                        }
+                        return String(item);
+                    }).filter(item => item.trim() !== ''));
+                    syncItemsTextareaFromState();
                     updatePreviousResults();
                 }
             });
@@ -510,7 +537,8 @@
 
         document.getElementById('inputNames').addEventListener('input', function () {
             const input = this.value;
-            items = removeDuplicates(input.split(/[,|\n]+/).map(item => item.trim()).filter(item => item));
+            const parsed = removeDuplicates(input.split(/[,|\n]+/).map(item => item.trim()).filter(Boolean));
+            mergeTextareaEligibleWithForbiddenInPool(parsed);
             writeDataToFirebase();
         });
         document.getElementById('inputNames').addEventListener('focus', function () {
@@ -518,9 +546,9 @@
         });
         document.getElementById('inputNames').addEventListener('blur', function () {
             isEditingItems = false;
-            const nextValue = items.join(', ');
-            if (this.value !== nextValue) {
-                this.value = nextValue;
+            const expected = getItemsTextareaDisplayValue();
+            if (this.value !== expected) {
+                this.value = expected;
             }
         });
 
@@ -530,7 +558,7 @@
 
         document.getElementById('drawButton').addEventListener('click', function () {
             const numberOfDraws = parseInt(document.getElementById('numberOfDraws').value, 10);
-            const forbiddenSet = new Set(forbiddenItems.map(item => normalizeTicket(item)));
+            const forbiddenSet = getForbiddenSet();
             const availableCount = items.filter(item => !drawnItems.includes(item) && !forbiddenSet.has(normalizeTicket(item))).length;
             if (availableCount === 0) {
                 alert("No items left to draw. Add more items or clear drawn history.");
@@ -633,8 +661,7 @@
                     playSound('fanfare-sound.mp3');
                 }, 400);
 
-                // Update the textarea to show remaining items
-                document.getElementById('inputNames').value = items.join(', ');
+                syncItemsTextareaFromState();
                 
                 // Show the remove drawn button if there are drawn items
                 document.getElementById('removeDrawnButton').style.display = drawnItems.length > 0 ? 'inline-block' : 'none';
@@ -710,7 +737,7 @@
             drawnItems = [];
             allResults = [];
             writeDataToFirebase();
-            document.getElementById('inputNames').value = items.join(', ');
+            syncItemsTextareaFromState();
             document.getElementById('previousResults').innerHTML = `<li class='list-group-item empty'>No results yet</li>`;
             document.getElementById('result').innerHTML = '';
             document.getElementById('result').style.display = 'none';

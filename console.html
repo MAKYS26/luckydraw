@@ -558,11 +558,27 @@
             return new Set(forbiddenItems.map(function (x) { return normalizeTicket(x); }));
         }
 
+        /** Eligible draw pool only: forbidden tickets stay in `items` for tracking but are hidden from this textarea. */
+        function getItemsForbiddenOnlyInPool() {
+            const fs = getForbiddenSet();
+            return items.filter(function (item) { return fs.has(normalizeTicket(item)); });
+        }
+
+        function getItemsTextareaDisplayValue() {
+            const fs = getForbiddenSet();
+            return items.filter(function (item) { return !fs.has(normalizeTicket(item)); }).join(', ');
+        }
+
+        function mergeTextareaEligibleWithForbiddenInPool(parsedEligible) {
+            var forbiddenOnly = getItemsForbiddenOnlyInPool();
+            items = removeDuplicates(parsedEligible.concat(forbiddenOnly));
+        }
+
         function syncItemsTextareaFromState() {
             const inputEl = document.getElementById('inputNames');
             if (!inputEl) return;
             if (isControl && isEditingItems) return;
-            const nextValue = items.join(', ');
+            const nextValue = getItemsTextareaDisplayValue();
             if (inputEl.value !== nextValue) {
                 inputEl.value = nextValue;
             }
@@ -642,9 +658,7 @@
                     allResults.push(selectedItems.join(', '));
                     items = items.filter(function(item) { return !selectedItems.includes(item); });
                     writeDataToFirebase();
-                    if (document.getElementById('inputNames')) {
-                        document.getElementById('inputNames').value = items.join(', ');
-                    }
+                    syncItemsTextareaFromState();
                     updatePreviousResults();
                 }
 
@@ -813,7 +827,7 @@
             drawnItems = [];
             allResults = [];
             writeDataToFirebase();
-            document.getElementById('inputNames').value = items.join(', ');
+            syncItemsTextareaFromState();
             document.getElementById('previousResults').innerHTML = `<li class='list-group-item empty'>No results yet</li>`;
             document.getElementById('result').innerHTML = '';
             document.getElementById('result').style.display = 'none';
@@ -909,7 +923,8 @@
         document.getElementById('inputNames').addEventListener('input', function () {
             if (!isControl) return;
             const input = this.value;
-            items = removeDuplicates(input.split(/[,|\n]+/).map(function (i) { return i.trim(); }).filter(Boolean));
+            var parsed = removeDuplicates(input.split(/[,|\n]+/).map(function (i) { return i.trim(); }).filter(Boolean));
+            mergeTextareaEligibleWithForbiddenInPool(parsed);
             writeDataToFirebase();
         });
         document.getElementById('inputNames').addEventListener('focus', function () {
@@ -919,7 +934,10 @@
         document.getElementById('inputNames').addEventListener('blur', function () {
             if (!isControl) return;
             isEditingItems = false;
-            syncItemsTextareaFromState();
+            var expected = getItemsTextareaDisplayValue();
+            if (this.value !== expected) {
+                this.value = expected;
+            }
         });
 
         document.addEventListener('DOMContentLoaded', function () {
