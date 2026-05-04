@@ -181,7 +181,7 @@
 
     <div class="ctrl-bar" id="ctrlBar">
         <button onclick="prevPage()" title="Previous"><i class="fas fa-chevron-left"></i></button>
-        <span class="page-indicator" id="pageIndicator">(1/12)</span>
+        <span class="page-indicator" id="pageIndicator">(1/10)</span>
         <button onclick="nextPage()" title="Next"><i class="fas fa-chevron-right"></i></button>
         <a href="index.html" title="Home"><i class="fas fa-home"></i></a>
         <button onclick="toggleFullscreen()" title="Fullscreen"><i class="fas fa-expand" id="fsIcon"></i></button>
@@ -205,8 +205,8 @@
         const database = firebase.database();
 
         const CELLS_PER_PAGE = 25;
-        const TOTAL_CELLS = 300;
-        const TOTAL_PAGES = 12;
+        const TOTAL_CELLS = 250;
+        const TOTAL_PAGES = 10;
         const PAGE_FADE_OUT_MS = 220;
         const PAGE_FADE_IN_MS = 360;
         const PAGE_FADE_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
