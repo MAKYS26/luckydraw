@@ -253,14 +253,23 @@
             bottom: 15px;
             right: 15px;
             font-size: 1.5rem;
-            background: none;
-            border: none;
-            color: rgba(255, 255, 255, 0.8);
-            padding: 8px;
+            background: #333333;
+            border: 1px solid #4a4a4a;
+            border-radius: 8px;
+            color: #ffffff;
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s, color 0.3s, background-color 0.3s;
         }
 
         .fullscreen-btn:hover {
-            color: #ffcc00;
+            color: #ffffff;
+            background: #444444;
+            transform: scale(1.1);
         }
 
         .arrow.faded, .fullscreen-btn.faded {

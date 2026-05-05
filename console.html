@@ -171,22 +171,29 @@
             background: linear-gradient(135deg, #2E7D32, #1B5E20);
         }
 
-        #fullscreenButton {
+        #container1 #fullscreenButton {
             position: absolute;
             bottom: 10px;
             right: 10px;
-            background: none;
-            border: none;
+            background: #333333;
+            border: 1px solid #4a4a4a;
+            border-radius: 8px;
             color: #fff;
             font-size: 1.5rem;
             cursor: pointer;
-            transition: transform 0.3s, color 0.3s;
-            padding: 8px;
+            transition: transform 0.3s, color 0.3s, background-color 0.3s;
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        #fullscreenButton:hover {
+        #container1 #fullscreenButton:hover {
             transform: scale(1.2);
-            color: #ffcc00;
+            color: #ffffff;
+            background: #444444;
         }
 
         #container2 {
