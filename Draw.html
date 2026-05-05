@@ -371,7 +371,7 @@
         </div>
         <div class="mt-4">
             <label for="slotDurationInput" style="color: antiquewhite;">Slot Machine Duration (seconds):</label>
-            <input type="number" class="form-control" id="slotDurationInput" min="3" max="15" value="5" style="margin-top: 10px;">
+            <input type="number" class="form-control" id="slotDurationInput" min="3" max="15" value="8" style="margin-top: 10px;">
         </div>
         <div class="mt-4">
             <label for="fontSizeInput" style="color: antiquewhite;">Font Size (px):</label>
@@ -471,7 +471,7 @@
         function getConsoleSettingsFromInputs() {
             return {
                 numberOfDraws: Math.max(1, parseInt(document.getElementById('numberOfDraws').value, 10) || 1),
-                slotDurationSec: Math.max(3, Math.min(15, parseInt(document.getElementById('slotDurationInput').value, 10) || 5)),
+                slotDurationSec: Math.max(3, Math.min(15, parseInt(document.getElementById('slotDurationInput').value, 10) || 8)),
                 fontSizePx: Math.max(10, parseInt(document.getElementById('fontSizeInput').value, 10) || 71),
                 updatedAt: Date.now()
             };
@@ -480,7 +480,7 @@
         function applyConsoleSettings(settings) {
             if (!settings) return;
             const numberOfDraws = Math.max(1, parseInt(settings.numberOfDraws, 10) || 1);
-            const slotDurationSec = Math.max(3, Math.min(15, parseInt(settings.slotDurationSec, 10) || 5));
+            const slotDurationSec = Math.max(3, Math.min(15, parseInt(settings.slotDurationSec, 10) || 8));
             const fontSizePx = Math.max(10, parseInt(settings.fontSizePx, 10) || 71);
             document.getElementById('numberOfDraws').value = numberOfDraws;
             document.getElementById('slotDurationInput').value = slotDurationSec;
@@ -617,7 +617,7 @@
             // Start playing slot machine sound
             slotMachineSound.play().catch(error => console.warn("Audio autoplay blocked:", error));
 
-            const slotDuration = Math.max(3, Math.min(15, parseInt(document.getElementById('slotDurationInput').value, 10) || 5)) * 1000;
+            const slotDuration = Math.max(3, Math.min(15, parseInt(document.getElementById('slotDurationInput').value, 10) || 8)) * 1000;
 
             // Set a timeout to close the modal after configured duration and proceed with the draw function
             setTimeout(() => {
