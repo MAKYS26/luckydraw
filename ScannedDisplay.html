@@ -27,41 +27,9 @@
         }
         .header {
             position: relative;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 16px;
             text-align: left;
-            padding: 20px 24px;
-            padding-right: 24px;
+            padding: 20px 100px 20px 24px;
             border-bottom: 1px solid rgba(255,255,255,0.08);
-        }
-        .header-main {
-            flex: 1 1 280px;
-            min-width: 0;
-        }
-        .header-actions {
-            flex: 0 0 auto;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 12px;
-        }
-        .clear-scans-btn {
-            font-weight: 600;
-            border-radius: 10px;
-            padding: 12px 20px;
-            white-space: nowrap;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
-        }
-        /* Always visible: projector / fullscreen often crops the top bar */
-        .clear-scans-fab {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 10000;
         }
         .header h1 {
             font-size: clamp(2.5rem, 6vw, 4rem);
@@ -75,6 +43,10 @@
             margin: 0;
         }
         .total-badge {
+            position: absolute;
+            top: 50%;
+            right: 24px;
+            transform: translateY(-50%);
             padding: 8px 20px;
             background: var(--accent);
             color: #000;
@@ -121,18 +93,10 @@
 <body>
     <script>if(!sessionStorage.getItem('staffAuth'))location.replace('StaffLogin.html');</script>
     <div class="header">
-        <div class="header-main">
-            <h1>Cabutan Tiket Bertuah</h1>
-            <p class="subtitle">Sila pastkan nombor tiket anda tertera di skrin</p>
-        </div>
-        <div class="header-actions">
-            <div class="total-badge" id="totalCount">0</div>
-        </div>
+        <h1>Cabutan Tiket Bertuah</h1>
+        <p class="subtitle">Sila pastkan nombor tiket anda tertera di skrin</p>
+        <div class="total-badge" id="totalCount">0</div>
     </div>
-
-    <button type="button" class="btn btn-danger clear-scans-btn clear-scans-fab" id="clearAllScansBtn" title="Remove every scanned ticket from the database so scanning can start again" aria-label="Clear all scans">
-        <i class="fas fa-trash-alt me-2" aria-hidden="true"></i>Clear all scans
-    </button>
 
     <div class="grid-container" id="grid"></div>
     <div class="empty-state" id="emptyState" style="display: none;">
@@ -158,33 +122,12 @@
         const gridEl = document.getElementById('grid');
         const totalEl = document.getElementById('totalCount');
         const emptyEl = document.getElementById('emptyState');
-        const clearAllScansBtn = document.getElementById('clearAllScansBtn');
 
         function normalizeItem(item) {
             if (item == null) return '';
             if (typeof item === 'object' && item !== null && item.data != null) return String(item.data);
             return String(item);
         }
-
-        clearAllScansBtn.addEventListener('click', function () {
-            const ok = window.confirm(
-                'Remove every scanned ticket from the database (including tickets that were marked forbidden when scanned)?\n\n' +
-                'This uses the same list as the draw console "Items" pool, so that list will be emptied too.\n\n' +
-                'This cannot be undone. The forbidden definition list in Scanner is not changed; clear that separately if you need a full reset.\n\n' +
-                'Padam semua tiket yang diimbas?'
-            );
-            if (!ok) return;
-            clearAllScansBtn.disabled = true;
-            database.ref('drawResults/items').set([])
-                .then(function () {
-                    clearAllScansBtn.disabled = false;
-                })
-                .catch(function (err) {
-                    clearAllScansBtn.disabled = false;
-                    console.error(err);
-                    window.alert('Could not clear scans: ' + (err && err.message ? err.message : String(err)));
-                });
-        });
 
         database.ref('drawResults/items').on('value', (snapshot) => {
             const raw = snapshot.val();
