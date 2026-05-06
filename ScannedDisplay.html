@@ -52,8 +52,16 @@
         .clear-scans-btn {
             font-weight: 600;
             border-radius: 10px;
-            padding: 10px 18px;
+            padding: 12px 20px;
             white-space: nowrap;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+        }
+        /* Always visible: projector / fullscreen often crops the top bar */
+        .clear-scans-fab {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10000;
         }
         .header h1 {
             font-size: clamp(2.5rem, 6vw, 4rem);
@@ -118,12 +126,13 @@
             <p class="subtitle">Sila pastkan nombor tiket anda tertera di skrin</p>
         </div>
         <div class="header-actions">
-            <button type="button" class="btn btn-outline-danger clear-scans-btn" id="clearAllScansBtn" title="Remove every scanned ticket from the database so scanning can start again">
-                Clear all scans
-            </button>
             <div class="total-badge" id="totalCount">0</div>
         </div>
     </div>
+
+    <button type="button" class="btn btn-danger clear-scans-btn clear-scans-fab" id="clearAllScansBtn" title="Remove every scanned ticket from the database so scanning can start again" aria-label="Clear all scans">
+        <i class="fas fa-trash-alt me-2" aria-hidden="true"></i>Clear all scans
+    </button>
 
     <div class="grid-container" id="grid"></div>
     <div class="empty-state" id="emptyState" style="display: none;">
