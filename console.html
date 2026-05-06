@@ -624,106 +624,119 @@
                 if (isControl) alert('Slot view failed to load.');
                 return;
             }
-            if (!iframe.src || iframe.src === '' || (iframe.getAttribute('src') || '').endsWith('about:blank')) {
-                iframe.src = 'slotmac.html';
-            }
-            iframe.onload = function () {
-                if (iframe.contentWindow) iframe.contentWindow.postMessage('resetAnimation', '*');
-            };
+
             lastProcessedDrawId = p.drawId;
             drawInProgress = true;
-            if (isControl) {
-                document.getElementById('drawButton').disabled = true;
-            }
-            slotMachineSound.play().catch(function(err) { console.warn('Audio autoplay blocked:', err); });
-            modal.show();
 
-            setTimeout(function () {
-                try {
-                    modal.hide();
-                } catch (e) { /* noop */ }
-                slotMachineSound.pause();
-                slotMachineSound.currentTime = 0;
+            database.ref('drawResults').once('value').then(function (startSnap) {
+                const startData = startSnap.val() || {};
 
-                database.ref('drawResults').once('value').then(function (snap) {
-                applyDrawResultsSnapshot(snap.val() || {});
-
-                const pool = getStablePool();
-                if (numberOfDraws > pool.length) {
-                    if (isControl) {
-                        database.ref('drawSession/current').remove();
-                        alert('No items left to complete this draw (data out of sync).');
-                    }
-                    lastProcessedDrawId = null;
-                    finishDrawSequence();
-                    return;
+                if (!iframe.src || iframe.src === '' || (iframe.getAttribute('src') || '').endsWith('about:blank')) {
+                    iframe.src = 'slotmac.html';
                 }
-                const selectedItems = shuffleSeededFromPool(pool, numberOfDraws, seed);
-
+                iframe.onload = function () {
+                    if (iframe.contentWindow) iframe.contentWindow.postMessage('resetAnimation', '*');
+                };
                 if (isControl) {
-                    drawnItems = drawnItems.concat(selectedItems);
-                    allResults.push(selectedItems.join(', '));
-                    items = items.filter(function(item) { return !selectedItems.includes(item); });
-                    writeDataToFirebase();
-                    syncItemsTextareaFromState();
-                    updatePreviousResults();
+                    document.getElementById('drawButton').disabled = true;
                 }
+                slotMachineSound.play().catch(function(err) { console.warn('Audio autoplay blocked:', err); });
+                modal.show();
 
-                const resultDiv = document.getElementById('result');
-                resultDiv.innerHTML = '';
-                resultDiv.style.display = 'block';
+                setTimeout(function () {
+                    try {
+                        modal.hide();
+                    } catch (e) { /* noop */ }
+                    slotMachineSound.pause();
+                    slotMachineSound.currentTime = 0;
 
-                if (numberOfDraws === 1) {
-                    const card = document.createElement('div');
-                    card.className = 'card';
-                    card.style.fontSize = currentFontSize + 'px';
-                    resultDiv.appendChild(card);
-                    card.style.opacity = 0;
-                    requestAnimationFrame(function() {
-                        card.classList.add('winner-reveal');
-                        card.style.transition = 'opacity 0.5s';
-                        card.style.opacity = 1;
-                    });
-                    fadeInCharacterByCharacter(selectedItems[0], card);
-                } else {
-                    selectedItems.forEach(function(item, index) {
-                        const card = document.createElement('div');
-                        card.className = 'card';
-                        card.style.fontSize = currentFontSize + 'px';
-                        card.innerText = item;
-                        resultDiv.appendChild(card);
-                        setTimeout(function() {
+                    try {
+                        applyDrawResultsSnapshot(startData);
+
+                        const pool = getStablePool();
+                        if (numberOfDraws > pool.length) {
+                            if (isControl) {
+                                database.ref('drawSession/current').remove();
+                                alert('No items left to complete this draw (data out of sync).');
+                            }
+                            lastProcessedDrawId = null;
+                            finishDrawSequence();
+                            return;
+                        }
+                        const selectedItems = shuffleSeededFromPool(pool, numberOfDraws, seed);
+
+                        if (isControl) {
+                            drawnItems = drawnItems.concat(selectedItems);
+                            allResults.push(selectedItems.join(', '));
+                            items = items.filter(function(item) { return !selectedItems.includes(item); });
+                            writeDataToFirebase();
+                            syncItemsTextareaFromState();
+                            updatePreviousResults();
+                        }
+
+                        const resultDiv = document.getElementById('result');
+                        resultDiv.innerHTML = '';
+                        resultDiv.style.display = 'block';
+
+                        if (numberOfDraws === 1) {
+                            const card = document.createElement('div');
+                            card.className = 'card';
+                            card.style.fontSize = currentFontSize + 'px';
+                            resultDiv.appendChild(card);
                             card.style.opacity = 0;
                             requestAnimationFrame(function() {
                                 card.classList.add('winner-reveal');
+                                card.style.transition = 'opacity 0.5s';
                                 card.style.opacity = 1;
-                                card.style.transform = 'translateY(0)';
                             });
-                        }, index * 800);
-                        if ((index + 1) % 9 === 0) {
-                            const lineBreak = document.createElement('br');
-                            resultDiv.appendChild(lineBreak);
+                            fadeInCharacterByCharacter(selectedItems[0], card);
+                        } else {
+                            selectedItems.forEach(function(item, index) {
+                                const card = document.createElement('div');
+                                card.className = 'card';
+                                card.style.fontSize = currentFontSize + 'px';
+                                card.innerText = item;
+                                resultDiv.appendChild(card);
+                                setTimeout(function() {
+                                    card.style.opacity = 0;
+                                    requestAnimationFrame(function() {
+                                        card.classList.add('winner-reveal');
+                                        card.style.opacity = 1;
+                                        card.style.transform = 'translateY(0)';
+                                    });
+                                }, index * 800);
+                                if ((index + 1) % 9 === 0) {
+                                    const lineBreak = document.createElement('br');
+                                    resultDiv.appendChild(lineBreak);
+                                }
+                            });
                         }
-                    });
-                }
-                setTimeout(function() { playSound('fanfare-sound.mp3'); }, 400);
-                if (isControl) {
-                    document.getElementById('removeDrawnButton').style.display = drawnItems.length > 0 ? 'inline-block' : 'none';
-                }
+                        setTimeout(function() { playSound('fanfare-sound.mp3'); }, 400);
+                        if (isControl) {
+                            document.getElementById('removeDrawnButton').style.display = drawnItems.length > 0 ? 'inline-block' : 'none';
+                        }
 
-                if (isControl) {
-                    database.ref('drawSession/current').remove();
-                }
-                finishDrawSequence();
-                }).catch(function (err) {
-                    console.warn('drawResults once failed:', err);
-                    lastProcessedDrawId = null;
-                    if (isControl) {
-                        database.ref('drawSession/current').remove();
+                        if (isControl) {
+                            database.ref('drawSession/current').remove();
+                        }
+                    } catch (err) {
+                        console.warn('runMirroredDrawSequence completion failed:', err);
+                        lastProcessedDrawId = null;
+                        if (isControl) {
+                            database.ref('drawSession/current').remove();
+                        }
                     }
                     finishDrawSequence();
-                });
-            }, slotDuration);
+                }, slotDuration);
+            }).catch(function (err) {
+                console.warn('drawResults snapshot at draw start failed:', err);
+                lastProcessedDrawId = null;
+                drawInProgress = false;
+                if (isControl) {
+                    document.getElementById('drawButton').disabled = false;
+                    database.ref('drawSession/current').remove();
+                }
+            });
         }
 
         function finishDrawSequence() {
